@@ -15,6 +15,11 @@ COPY . .
 RUN mkdir -p public
 ARG BACKEND_API_URL
 ENV BACKEND_API_URL=$BACKEND_API_URL
+# ─── Database Migration (SQLite) ─────────────────────────────────────────────
+# Run migration before build so the DB exists during Next.js pre-rendering.
+# If you switch to a different database (e.g. PostgreSQL), comment out this line.
+RUN npx tsx scripts/migrate.ts
+# ─────────────────────────────────────────────────────────────────────────────
 RUN pnpm run build
 
 FROM base AS runner
@@ -27,16 +32,8 @@ COPY --from=builder /app/node_modules ./node_modules
 COPY --from=builder /app/.next/standalone ./
 COPY --from=builder /app/.next/static ./.next/static
 COPY --from=builder /app/public ./public
-
-# ─── Database Migration Setup ─────────────────────────────────────────────────
-# Scripts are copied so run-migration.sh can execute them at container startup.
-# If you switch to a different database (e.g. PostgreSQL), comment out the
-# two COPY lines below and remove the sh run-migration.sh call from entrypoint.sh.
-COPY --from=builder /app/scripts ./scripts
-COPY run-migration.sh ./run-migration.sh
-RUN chmod +x run-migration.sh
-# ─────────────────────────────────────────────────────────────────────────────
+# Copy the pre-built SQLite database (created during build by migrate.ts)
+COPY --from=builder /app/db ./db
 
 EXPOSE 3000
-# Run migration first, then start the server
-CMD sh run-migration.sh && node server.js
+CMD ["node", "server.js"]
