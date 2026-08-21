@@ -1,0 +1,21 @@
+# Dependencies
+node_modules/
+.next/
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+venv/
+# Env files
+.env
+.env.local
+.env.production
+# Docker
+*.log
+# OS
+.DS_Store
+Thumbs.db
+# Custom test
+*-test.*
+*-tmp.*

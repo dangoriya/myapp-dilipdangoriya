@@ -1,0 +1,20 @@
+services:
+  myapp:
+    build:
+      context: ./nextjs-app
+      dockerfile: Dockerfile
+      args:
+        - BACKEND_API_URL=${BACKEND_API_URL:-}
+    container_name: myapp
+    restart: unless-stopped
+    ports:
+      - "8080:3000"
+    environment:
+      - BACKEND_API_URL=${BACKEND_API_URL:-}
+      - HOSTNAME=0.0.0.0
+    networks:
+      - dokploy-network
+
+networks:
+  dokploy-network:
+    external: true
