@@ -43,9 +43,10 @@ export async function POST(req: Request) {
     const response = NextResponse.json({ user, message: "Logged in successfully" });
 
     // Set HttpOnly session cookie
+    // Set SECURE_COOKIE=true in production only if serving over HTTPS
     response.cookies.set("session", token, {
       httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
+      secure: process.env.SECURE_COOKIE === "true",
       sameSite: "lax",
       path: "/",
       maxAge: maxAgeSeconds,
