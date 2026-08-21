@@ -1,16 +1,30 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
+import dynamic from "next/dynamic";
 import { AppItem, UserProfile, UserRole } from "@/types";
-import { INITIAL_APPS, MOCK_USERS } from "@/lib/constants";
 import Sidebar from "../sidebar/Sidebar";
 import GalleryHeader from "./GalleryHeader";
 import AppCard from "./AppCard";
 import AddAppModal from "./AddAppModal";
 import EditAppModal from "./EditAppModal";
 import AuthModal from "../auth/AuthModal";
+import TopProgressBar from "../ui/TopProgressBar";
 import { SafeIcon } from "../ui/SafeIcon";
-import GradientWaves from "../ui/GradientWaves";
+
+const GradientWaves = dynamic(() => import("../ui/GradientWaves"), {
+  ssr: false,
+});
+
+const DEFAULT_GUEST_USER: UserProfile = {
+  id: "guest",
+  name: "Dilip Dangoriya",
+  email: "dilipdangoriya@gmail.com",
+  role: "guest",
+  avatar: "/images/profile.png",
+  siteUrl: "https://iprofile.com"
+};
 
 interface AppGalleryClientProps {
   initialApps?: AppItem[];
@@ -23,9 +37,10 @@ interface AppGalleryClientProps {
  * Includes add, edit, delete operations for applications (admin only).
  */
 export default function AppGalleryClient({
-  initialApps = INITIAL_APPS,
-  initialUser = MOCK_USERS.user,
+  initialApps = [],
+  initialUser = DEFAULT_GUEST_USER,
 }: AppGalleryClientProps) {
+  const router = useRouter();
   const [apps, setApps] = useState<AppItem[]>(initialApps);
   const [currentUser, setCurrentUser] = useState<UserProfile>(initialUser);
   const [searchQuery, setSearchQuery] = useState<string>("");
@@ -33,6 +48,11 @@ export default function AppGalleryClient({
   const [editApp, setEditApp] = useState<AppItem | null>(null);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState<boolean>(false);
   const [isMobileNavOpen, setIsMobileNavOpen] = useState<boolean>(false);
+
+  // Sync currentUser whenever initialUser (SSR session) updates
+  useEffect(() => {
+    setCurrentUser(initialUser);
+  }, [initialUser]);
 
   // Load from localStorage or fallback
   useEffect(() => {
@@ -90,14 +110,36 @@ export default function AppGalleryClient({
     );
   });
 
+  const handleLogout = async () => {
+    try {
+      await fetch("/api/auth/logout", { method: "POST" });
+    } catch (err) {
+      console.error("Logout error:", err);
+    }
+    setCurrentUser(DEFAULT_GUEST_USER);
+    router.refresh();
+  };
+
+  const handleSelectUser = (user: UserProfile) => {
+    setCurrentUser(user);
+    router.refresh();
+  };
+
+  const handleUpdatePortfolio = (newUrl: string) => {
+    setCurrentUser((prev) => ({ ...prev, siteUrl: newUrl }));
+  };
+
   const isAdmin = currentUser.role === "admin-only";
 
   return (
     <div className="flex min-h-screen bg-[#0d1017] relative overflow-hidden">
+      <TopProgressBar />
       {/* Sidebar */}
       <Sidebar
         currentUser={currentUser}
         onOpenAuthModal={() => setIsAuthModalOpen(true)}
+        onLogout={handleLogout}
+        onUpdatePortfolio={handleUpdatePortfolio}
         isMobileOpen={isMobileNavOpen}
         onCloseMobile={() => setIsMobileNavOpen(false)}
       />
@@ -107,9 +149,9 @@ export default function AppGalleryClient({
         {/* Animated Background Canvas */}
         <div className="absolute inset-0 -z-10 opacity-35 pointer-events-none overflow-hidden">
           <GradientWaves
-            horizonColor="#131722"
-            waveColor="#6D28D9"
-            crestColor="#34D399"
+            horizonColor="#0c1714"
+            waveColor="#103a2e"
+            crestColor="#6ee7b7"
             speed={0.4}
             amplitude={2.5}
             waveScale={0.6}
@@ -174,7 +216,7 @@ export default function AppGalleryClient({
         isOpen={isAuthModalOpen}
         onClose={() => setIsAuthModalOpen(false)}
         currentRole={currentUser.role}
-        onSelectUser={(user) => setCurrentUser(user)}
+        onSelectUser={handleSelectUser}
       />
     </div>
   );

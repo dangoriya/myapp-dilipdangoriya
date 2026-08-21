@@ -1,30 +1,47 @@
 "use client";
 
-import React from "react";
+import React, { useState } from "react";
 import { UserProfile } from "@/types";
 import { SafeIcon } from "../ui/SafeIcon";
+import PortfolioModal from "./PortfolioModal";
 
 interface SidebarProps {
     currentUser: UserProfile;
     onOpenAuthModal: () => void;
+    onLogout?: () => void;
+    onUpdatePortfolio?: (url: string) => void;
     isMobileOpen: boolean;
     onCloseMobile: () => void;
 }
 
 /**
  * Sidebar Drawer Component
- * Includes brand header, centered profile card, quick navigation links, and user role switcher.
+ * Includes brand header, centered profile card, quick navigation links, portfolio link configuration, and user authentication / logout.
  */
 export default function Sidebar({
     currentUser,
     onOpenAuthModal,
+    onLogout,
+    onUpdatePortfolio,
     isMobileOpen,
     onCloseMobile
 }: SidebarProps) {
+    const [isPortfolioModalOpen, setIsPortfolioModalOpen] = useState(false);
+
     const roleLabelMap: Record<UserProfile['role'], string> = {
         guest: "Guest View",
         "normal-user": "Normal User",
         "admin-only": "Admin",
+    };
+
+    const isGuest = currentUser.role === "guest";
+    const hasPortfolio = Boolean(currentUser.siteUrl && currentUser.siteUrl.trim() !== "");
+
+    const handlePortfolioClick = (e: React.MouseEvent) => {
+        if (!isGuest && !hasPortfolio) {
+            e.preventDefault();
+            setIsPortfolioModalOpen(true);
+        }
     };
 
     return (
@@ -72,17 +89,38 @@ export default function Sidebar({
                         </div>
                     </div>
 
-                    {/* My Portfolio Button */}
-                    <a
-                        href={currentUser.siteUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="flex items-center justify-center gap-2 w-full py-2 px-3 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 text-gray-200 hover:text-white text-xs font-medium transition-all"
-                    >
-                        <SafeIcon name="ExternalLink" size={13} />
-                        My Portfolio
-                    </a>
+                    {/* My Portfolio Button & Edit Option */}
+                    <div className="w-full flex items-center gap-1.5">
+                        <a
+                            href={hasPortfolio ? currentUser.siteUrl : "#"}
+                            target={hasPortfolio ? "_blank" : "_self"}
+                            rel={hasPortfolio ? "noopener noreferrer" : ""}
+                            onClick={handlePortfolioClick}
+                            className="flex-1 flex items-center justify-center gap-2 py-2 px-3 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 text-gray-200 hover:text-white text-xs font-medium transition-all"
+                        >
+                            <SafeIcon name={hasPortfolio ? "ExternalLink" : "Plus"} size={13} />
+                            {hasPortfolio ? "My Portfolio" : "Add Portfolio"}
+                        </a>
+                        {!isGuest && (
+                            <button
+                                type="button"
+                                onClick={() => setIsPortfolioModalOpen(true)}
+                                className="p-2 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 text-gray-400 hover:text-white transition-all"
+                                title="Edit Portfolio Link"
+                            >
+                                <SafeIcon name="Pencil" size={13} />
+                            </button>
+                        )}
+                    </div>
                 </div>
+
+                {/* Portfolio Modal */}
+                <PortfolioModal
+                    isOpen={isPortfolioModalOpen}
+                    currentUrl={currentUser.siteUrl || ""}
+                    onClose={() => setIsPortfolioModalOpen(false)}
+                    onSave={(newUrl) => onUpdatePortfolio?.(newUrl)}
+                />
 
                 {/* Main Navigation */}
                 <nav className="mb-6">
@@ -95,9 +133,9 @@ export default function Sidebar({
                     </a>
                 </nav>
 
-                {/* Quick Links Header */}
+                {/* My Links Header */}
                 <div className="text-xs font-semibold uppercase tracking-wider text-gray-500 mb-3 px-2">
-                    Quick Links
+                    My Links
                 </div>
 
                 <div className="flex flex-col gap-1">
@@ -135,18 +173,29 @@ export default function Sidebar({
                     </a>
                 </div>
 
-                {/* User Role Switcher */}
-                <div className="mt-auto pt-6">
-                    <button
-                        onClick={onOpenAuthModal}
-                        className="w-full py-2.5 px-3 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-gray-400 flex items-center justify-between text-xs font-medium transition-all"
-                    >
-                        <span className="flex items-center gap-2">
-                            <SafeIcon name="UserCheck" size={15} style={{ color: "#10b981" }} />
-                            {roleLabelMap[currentUser.role]}
-                        </span>
-                        <SafeIcon name="ChevronRight" size={13} />
-                    </button>
+                {/* User Auth & Role Section */}
+                <div className="mt-auto pt-6 flex flex-col gap-2">
+                    {isGuest ? (
+                        <button
+                            onClick={onOpenAuthModal}
+                            className="w-full py-2.5 px-4 rounded-xl bg-gradient-to-r from-sky-500 to-emerald-500 hover:from-sky-600 hover:to-emerald-600 text-white flex items-center justify-center gap-2 text-xs font-semibold shadow-lg transition-all"
+                        >
+                            <SafeIcon name="LogIn" size={16} />
+                            Log In / Sign Up
+                        </button>
+                    ) : (
+                        <button
+                            onClick={onLogout}
+                            className="w-full py-2.5 px-4 rounded-xl bg-rose-500/15 hover:bg-rose-500/25 border border-rose-500/30 text-rose-300 hover:text-rose-200 flex items-center justify-center gap-2 text-xs font-semibold transition-all"
+                        >
+                            <SafeIcon name="LogOut" size={16} />
+                            Log Out
+                        </button>
+                    )}
+                    <div className="text-[11px] text-center text-gray-500 flex items-center justify-center gap-1">
+                        <SafeIcon name="UserCheck" size={12} style={{ color: "#10b981" }} />
+                        <span>Status: {roleLabelMap[currentUser.role]}</span>
+                    </div>
                 </div>
             </aside>
         </>

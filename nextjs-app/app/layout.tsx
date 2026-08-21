@@ -1,6 +1,7 @@
 import React from "react";
 import type { Metadata } from "next";
 import "./globals.css";
+import TopProgressBar from "./components/ui/TopProgressBar";
 
 export const metadata: Metadata = {
   title: "App Workspace - Centralized Launchpad",
@@ -14,7 +15,10 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body>{children}</body>
+      <body>
+        <TopProgressBar />
+        {children}
+      </body>
     </html>
   );
 }

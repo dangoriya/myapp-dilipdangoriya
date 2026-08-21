@@ -1,6 +1,10 @@
 # Dependencies
 node_modules/
 .next/
+# SQLite database
+/nextjs-app/db/*.db
+/nextjs-app/db/*.db-shm
+/nextjs-app/db/*.db-wal
 # Python
 __pycache__/
 *.pyc

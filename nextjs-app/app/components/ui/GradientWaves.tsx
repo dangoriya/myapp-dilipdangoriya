@@ -182,7 +182,7 @@ export default function GradientWaves({
   grain = true,
   grainIntensity = 0.05,
   className = "",
-}: GradientWavesProps) {
+}: GradientWavesProps): React.ReactElement {
   const containerRef = useRef<HTMLDivElement>(null);
   const enableMouseRef = useRef(mouseInteraction);
 
@@ -190,13 +190,20 @@ export default function GradientWaves({
     const container = containerRef.current;
     if (!container) return;
 
-    const renderer = new Renderer({
-      webgl: 2,
-      alpha: true,
-      premultipliedAlpha: true,
-      antialias: false,
-      dpr: Math.min(window.devicePixelRatio || 1, 2),
-    });
+    let animationFrameId: number;
+    let renderer: Renderer | null = null;
+    let isCancelled = false;
+
+    const timer = setTimeout(() => {
+      if (isCancelled || !containerRef.current) return;
+
+      renderer = new Renderer({
+        webgl: 2,
+        alpha: true,
+        premultipliedAlpha: true,
+        antialias: false,
+        dpr: Math.min(window.devicePixelRatio || 1, 2),
+      });
 
     const gl = renderer.gl;
     gl.clearColor(0, 0, 0, 0);
@@ -314,19 +321,11 @@ export default function GradientWaves({
     document.addEventListener("visibilitychange", onVisibility);
 
     tryStart();
+    }, 50);
 
     return () => {
-      tryStop();
-      ro.disconnect();
-      io.disconnect();
-      document.removeEventListener("visibilitychange", onVisibility);
-      canvas.removeEventListener("pointermove", onPointerMove);
-      canvas.removeEventListener("pointerleave", onPointerLeave);
-      ctxMap.delete(container);
-      try {
-        container.removeChild(canvas);
-      } catch {}
-      gl.getExtension("WEBGL_lose_context")?.loseContext();
+      isCancelled = true;
+      clearTimeout(timer);
     };
   }, []);
 

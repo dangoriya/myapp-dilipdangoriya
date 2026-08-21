@@ -2,7 +2,7 @@
 
 import React, { useState } from "react";
 import { AccessLevel, AppItem } from "@/types";
-import { COLOR_PRESETS, ICON_OPTIONS } from "@/lib/constants";
+import { COLOR_PRESETS, ICON_OPTIONS } from "@/lib/presets";
 import { SafeIcon, normalizeIconName } from "../ui/SafeIcon";
 
 interface AddAppModalProps {

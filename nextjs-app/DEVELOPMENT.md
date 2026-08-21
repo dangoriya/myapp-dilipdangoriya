@@ -8,6 +8,7 @@ This document provides a step-by-step setup guide to run and test the frontend a
 
 - **Node.js**: v20.x (LTS recommended)
 - **Package Manager**: `pnpm` v9.x (pinned for Node 20 compatibility)
+- **Database**: SQLite3 (via `better-sqlite3` — no separate DB server needed)
 
 ---
 
@@ -74,6 +75,71 @@ The application will start at `http://localhost:3000` (or `http://localhost:3001
 
 ---
 
+## 🗄️ Step 3: Database Setup (SQLite)
+
+This app uses **SQLite** via `better-sqlite3`. The database file lives at:
+```
+nextjs-app/db/app.db
+```
+
+> The `db/` folder is tracked in git (via `.gitkeep`), but `*.db` files are gitignored — every developer creates their own local database.
+
+### 1. Run the migration script
+
+From inside `nextjs-app/`, run:
+```bash
+pnpm migrate
+```
+
+Expected output:
+```
+  ✅ Applied   001_initial_schema
+
+✔ 1 migration(s) applied → /path/to/nextjs-app/db/app.db
+```
+
+Safe to re-run — already applied migrations are skipped:
+```
+  ⏭  Skipping  001_initial_schema
+
+✔ Database is already up to date.
+```
+
+### 2. Adding a new migration
+
+Edit [`scripts/migrate.ts`](./scripts/migrate.ts) and append a new entry to the `migrations` array:
+```ts
+{
+  version: "002_add_posts",
+  up: `
+    CREATE TABLE IF NOT EXISTS posts (
+      id         INTEGER PRIMARY KEY AUTOINCREMENT,
+      title      TEXT    NOT NULL,
+      body       TEXT,
+      user_id    INTEGER REFERENCES users(id),
+      created_at DATETIME DEFAULT (datetime('now'))
+    );
+  `,
+},
+```
+Then run `pnpm migrate` again.
+
+> ⚠️ **Never edit an existing migration.** Add a new one instead to keep history safe.
+
+### 3. Using the database in API Routes / Server Actions
+
+```ts
+import { getDb } from "@/lib/db";
+
+export async function GET() {
+  const db = getDb();
+  const users = db.prepare("SELECT * FROM users").all();
+  return Response.json(users);
+}
+```
+
+---
+
 ## 🧹 Troubleshooting Common Issues
 
 ### Issue 1: `EACCES: permission denied, open '.next/package.json'`
@@ -91,4 +157,12 @@ pnpm install
 **Fix**:
 ```bash
 npm install -g pnpm@9 --force
+```
+
+### Issue 3: `SqliteError: table users has no column named role` when running `pnpm migrate`
+**Cause**: A stale `db/app.db` exists from a previous (older) migration run with a different schema. The `migrations` table shows it as already applied, so the new schema is never re-created.
+
+**Fix**: Since the database is fully seeded from migrations, safely delete and recreate it:
+```bash
+rm db/app.db && pnpm migrate
 ```

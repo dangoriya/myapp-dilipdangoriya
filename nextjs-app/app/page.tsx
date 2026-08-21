@@ -1,15 +1,27 @@
 import React from "react";
+import { cookies } from "next/headers";
 import AppGalleryClient from "./components/gallery/AppGalleryClient";
-import { INITIAL_APPS, MOCK_USERS } from "@/lib/constants";
+import { getAppsFromDb, getUsersFromDb } from "@/lib/db";
+import { getSession } from "@/lib/session";
 
 /**
  * Server Component Page (Entry Point)
- * Loads initial data on the server side and renders the interactive client gallery container.
+ * Loads initial data and active user session from SQLite database on the server side.
  */
 export default async function HomePage() {
-  // Load server-side data (can be hooked up to FastAPI/database API in future backend phase)
-  const initialApps = INITIAL_APPS;
-  const initialUser = MOCK_USERS.user;
+  const initialApps = getAppsFromDb();
+  const dbUsers = getUsersFromDb();
+  
+  const cookieStore = await cookies();
+  const sessionToken = cookieStore.get("session")?.value;
+  
+  let initialUser = dbUsers.guest;
+  if (sessionToken) {
+    const sessionUser = getSession(sessionToken);
+    if (sessionUser) {
+      initialUser = sessionUser;
+    }
+  }
 
   return (
     <AppGalleryClient
@@ -18,3 +30,4 @@ export default async function HomePage() {
     />
   );
 }
+
