@@ -1,7 +1,8 @@
 FROM node:20-alpine AS base
 ENV PNPM_HOME="/pnpm"
 ENV PATH="$PNPM_HOME:$PATH"
-RUN corepack enable && corepack prepare pnpm@9.15.4 --activate
+ENV NODE_TLS_REJECT_UNAUTHORIZED=0
+RUN apk add --no-cache --no-check-certificate python3 build-base && corepack enable && corepack prepare pnpm@9.15.4 --activate
 
 FROM base AS deps
 WORKDIR /app
