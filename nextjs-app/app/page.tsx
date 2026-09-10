@@ -3,14 +3,15 @@ import { cookies } from "next/headers";
 import AppGalleryClient from "./components/gallery/AppGalleryClient";
 import { getAppsFromDb, getUsersFromDb } from "@/lib/db";
 import { getSession } from "@/lib/session";
+import { getAuthFlow } from "@/lib/auth-config";
 
-/**
- * Server Component Page (Entry Point)
- * Loads initial data and active user session from SQLite database on the server side.
- */
-export default async function HomePage() {
+export default async function HomePage({ searchParams }: { searchParams: Promise<{ auth_error?: string }> }) {
   const initialApps = getAppsFromDb();
   const dbUsers = getUsersFromDb();
+  const authFlow = getAuthFlow();
+  
+  const params = await searchParams;
+  const authError = params.auth_error;
   
   const cookieStore = await cookies();
   const sessionToken = cookieStore.get("session")?.value;
@@ -22,12 +23,13 @@ export default async function HomePage() {
       initialUser = sessionUser;
     }
   }
-
+  
   return (
     <AppGalleryClient
       initialApps={initialApps}
       initialUser={initialUser}
+      authFlow={authFlow}
+      authError={authError}
     />
   );
 }
-

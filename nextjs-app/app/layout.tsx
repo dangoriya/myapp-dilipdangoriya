@@ -6,6 +6,16 @@ import TopProgressBar from "./components/ui/TopProgressBar";
 export const metadata: Metadata = {
   title: "App Workspace - Centralized Launchpad",
   description: "Centralized application gallery for quick access.",
+  icons: {
+    icon: "/logo.svg",           // Modern browsers (Safari 14+, Chrome, Firefox, Edge)
+    shortcut: "/logo.svg",       // Legacy fallback
+    apple: "/logo.svg",          // iOS Safari home screen (180x180 recommended)
+    other: [
+      { rel: "icon", type: "image/svg+xml", url: "/logo.svg" },
+      { rel: "apple-touch-icon", url: "/logo.svg" },
+      { rel: "manifest", url: "/manifest.json" },
+    ],
+  },
 };
 
 export default function RootLayout({

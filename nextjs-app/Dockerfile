@@ -35,6 +35,8 @@ COPY --from=builder /app/.next/static ./.next/static
 COPY --from=builder /app/public ./public
 # Copy the pre-built SQLite database (created during build by migrate.ts)
 COPY --from=builder /app/db ./db
+# Copy .env for runtime environment variable loading
+COPY .env .env
 
 EXPOSE 3000
 CMD ["node", "server.js"]

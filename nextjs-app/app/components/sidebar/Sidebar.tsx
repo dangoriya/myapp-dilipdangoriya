@@ -12,19 +12,17 @@ interface SidebarProps {
     onUpdatePortfolio?: (url: string) => void;
     isMobileOpen: boolean;
     onCloseMobile: () => void;
+    authFlow: "local" | "oidc";
 }
 
-/**
- * Sidebar Drawer Component
- * Includes brand header, centered profile card, quick navigation links, portfolio link configuration, and user authentication / logout.
- */
 export default function Sidebar({
     currentUser,
     onOpenAuthModal,
     onLogout,
     onUpdatePortfolio,
     isMobileOpen,
-    onCloseMobile
+    onCloseMobile,
+    authFlow
 }: SidebarProps) {
     const [isPortfolioModalOpen, setIsPortfolioModalOpen] = useState(false);
 
@@ -43,6 +41,20 @@ export default function Sidebar({
             setIsPortfolioModalOpen(true);
         }
     };
+
+    const handleLogin = () => {
+        if (authFlow === "local") {
+            window.location.href = "/auth/local-login";
+        } else {
+            window.location.href = "/api/auth/login";
+        }
+    };
+
+    const handleLogout = () => {
+        window.location.href = "/api/auth/logout";
+    };
+
+    const loginButtonText = authFlow === "local" ? "Sign In" : "Sign In / Sign Up";
 
     return (
         <>
@@ -160,7 +172,7 @@ export default function Sidebar({
                         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                             <path d="M16 8a6 6 0 0 1 6 6v7h-4v-7a2 2 0 0 0-2-2 2 2 0 0 0-2 2v7h-4v-7a6 6 0 0 1 6-6z" />
                             <rect x="2" y="9" width="4" height="12" />
-                            <circle cx="4" cy="4" r="2" />
+                            <circle cx="4" cy="4" r={2} />
                         </svg>
                         LinkedIn
                     </a>
@@ -177,19 +189,19 @@ export default function Sidebar({
                 <div className="mt-auto pt-6 flex flex-col gap-2">
                     {isGuest ? (
                         <button
-                            onClick={onOpenAuthModal}
+                            onClick={handleLogin}
                             className="w-full py-2.5 px-4 rounded-xl bg-gradient-to-r from-sky-500 to-emerald-500 hover:from-sky-600 hover:to-emerald-600 text-white flex items-center justify-center gap-2 text-xs font-semibold shadow-lg transition-all"
                         >
                             <SafeIcon name="LogIn" size={16} />
-                            Log In / Sign Up
+                            {loginButtonText}
                         </button>
                     ) : (
                         <button
-                            onClick={onLogout}
+                            onClick={handleLogout}
                             className="w-full py-2.5 px-4 rounded-xl bg-rose-500/15 hover:bg-rose-500/25 border border-rose-500/30 text-rose-300 hover:text-rose-200 flex items-center justify-center gap-2 text-xs font-semibold transition-all"
                         >
                             <SafeIcon name="LogOut" size={16} />
-                            Log Out
+                            Sign Out
                         </button>
                     )}
                     <div className="text-[11px] text-center text-gray-500 flex items-center justify-center gap-1">

@@ -127,8 +127,8 @@ const migrations: { version: string; title: string; up: (db: Database.Database) 
         INSERT OR IGNORE INTO users (name, email, role, role_id, avatar, site_url, password)
         VALUES (?, ?, ?, ?, ?, ?, ?)
       `).run(
-        "Dilip Dangoriya",
-        "dilipdangoriya@gmail.com",
+        "Administrator",
+        "admin@example.com",
         "admin",
         adminRoleId,
         "/images/profile.png",
@@ -143,7 +143,7 @@ const migrations: { version: string; title: string; up: (db: Database.Database) 
         VALUES (?, ?, ?, ?, ?, ?, ?)
       `).run(
         "Normal User",
-        "user@devhub.com",
+        "user@example.com",
         "normal-user",
         userRoleId,
         "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100' fill='none'><rect width='100' height='100' rx='50' fill='%231e293b'/><path d='M50 18A19 19 0 1 0 50 56A19 19 0 1 0 50 18Z' fill='%2338bdf8'/><path d='M21 92C21 73 34 60 50 60C66 60 79 73 79 92Z' fill='%2338bdf8'/></svg>",

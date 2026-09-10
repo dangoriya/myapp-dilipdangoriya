@@ -1,0 +1,17 @@
+{
+  "name": "App Workspace",
+  "short_name": "App Workspace",
+  "description": "Centralized application gallery for quick access",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0d1017",
+  "theme_color": "#10b981",
+  "icons": [
+    {
+      "src": "/logo.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

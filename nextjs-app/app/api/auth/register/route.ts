@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { getDb } from "@/lib/db";
-import { createSession, hashPassword, getSessionTTLHours } from "@/lib/session";
+import { createLocalSession, hashPassword, getSessionTTLHours } from "@/lib/session";
 import { UserProfile, UserRole } from "@/types";
 
 export async function POST(req: Request) {
@@ -39,7 +39,7 @@ export async function POST(req: Request) {
     const newUserId = Number(result.lastInsertRowid);
 
     // Create server session
-    const token = createSession(newUserId);
+    const token = createLocalSession(newUserId);
     const ttlHours = getSessionTTLHours();
     const maxAgeSeconds = ttlHours * 60 * 60;
 
@@ -52,11 +52,19 @@ export async function POST(req: Request) {
       siteUrl: ""
     };
 
+    // Store session in JSON format expected by parseSessionToken
+    const sessionCookieValue = JSON.stringify({
+      type: "local",
+      token,
+      userId: newUserId,
+      expiresAt: Date.now() + maxAgeSeconds * 1000,
+    });
+
     const response = NextResponse.json({ user, message: "Registered and logged in successfully" });
 
-    response.cookies.set("session", token, {
+    response.cookies.set("session", sessionCookieValue, {
       httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
+      secure: process.env.SECURE_COOKIE === "true",
       sameSite: "lax",
       path: "/",
       maxAge: maxAgeSeconds,
