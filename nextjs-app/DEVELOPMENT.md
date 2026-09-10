@@ -56,17 +56,38 @@ cd nextjs-app
 pnpm install
 ```
 
-### 3. Environment Variables Setup (.env.local)
-Create a `.env.local` file inside `nextjs-app/` to configure different system variable.
-- External backend URL Setup (optional):
+### 3. Environment Variables Setup (.env)
+The main `.env` file lives in the **project root** (one level up). For local development, create a symlink so Next.js can read it:
 
+```bash
+# From nextjs-app/ directory
+ln -sf ../.env .env
+```
+
+This makes Next.js auto-load all settings from the root `.env` file (auth, database, session, etc.).
+
+> **Note**: The root `.env` is created from `.env.example` at project setup:
+> ```bash
+> # From project root (one-time)
+> cp .env.example .env
+> # Edit .env with your local values
+> ```
+
+**Key local settings to verify in `.env`:**
+- `AUTH_FLOW=local` (or `oidc` if you have auth server running)
+- `APPLICATION_URL=http://localhost:3000`
+- `REDIRECT_URI=http://localhost:3000/api/auth/callback`
+- `POST_LOGOUT_REDIRECT_URI=http://localhost:3000`
+- `SECURE_COOKIE=false`
+- `DB_PATH=./db/app.db` (relative to nextjs-app)
+
+### 4. Optional: External Backend URL
+If you need a separate backend API, create `.env.local` (ignored by git/Docker):
 ```env
 BACKEND_API_URL=http://localhost:8051
 ```
 
-> **Note**: `.env.local` is ignored in `.gitignore` and `.dockerignore` so system environment variables never baked into production Docker builds.
-
-### 4. Start the development server
+### 5. Start the development server
 ```bash
 pnpm dev
 ```
@@ -93,14 +114,18 @@ pnpm migrate
 
 Expected output:
 ```
-  ✅ Applied   001_initial_schema
+  ✅ Applied   001_phase1_create_roles_and_users
+  ✅ Applied   002_phase1_create_apps_and_sessions
+  ✅ Applied   003_phase2_seed_roles_and_users
+  ✅ Applied   004_phase2_seed_initial_apps
 
-✔ 1 migration(s) applied → /path/to/nextjs-app/db/app.db
+✔ 4 migration phase(s) executed successfully → /path/to/nextjs-app/db/app.db
 ```
 
 Safe to re-run — already applied migrations are skipped:
 ```
-  ⏭  Skipping  001_initial_schema
+  ⏭  Skipping  001_phase1_create_roles_and_users
+  ...
 
 ✔ Database is already up to date.
 ```
@@ -110,7 +135,7 @@ Safe to re-run — already applied migrations are skipped:
 Edit [`scripts/migrate.ts`](./scripts/migrate.ts) and append a new entry to the `migrations` array:
 ```ts
 {
-  version: "002_add_posts",
+  version: "005_add_posts",
   up: `
     CREATE TABLE IF NOT EXISTS posts (
       id         INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -165,4 +190,27 @@ npm install -g pnpm@9 --force
 **Fix**: Since the database is fully seeded from migrations, safely delete and recreate it:
 ```bash
 rm db/app.db && pnpm migrate
+```
+
+---
+
+## 🐳 Docker Development (Optional)
+
+If you prefer running via Docker Compose (uses same root `.env`):
+
+```bash
+# From project root
+docker compose up -d
+
+# View logs
+docker logs -f myapp
+
+# Stop
+docker compose down
+```
+
+**Force database reset:**
+```bash
+docker compose down -v
+RESET_DB=true docker compose up -d
 ```

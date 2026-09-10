@@ -3,6 +3,7 @@
  *
  * Run this script to create/update the SQLite database schema.
  * Usage: pnpm migrate
+ *        RESET_DB=true pnpm migrate (force reset)
  *
  * Each migration is identified by a unique version number.
  * Already-applied migrations are tracked in the `migrations` table and skipped.
@@ -12,7 +13,8 @@ import Database from "better-sqlite3";
 import path from "path";
 import fs from "fs";
 
-const DB_PATH = path.resolve(process.cwd(), "db/app.db");
+// DB path: use DB_PATH env var, or default to ./db/app.db
+const DB_PATH = process.env.DB_PATH || path.resolve(process.cwd(), "db/app.db");
 
 // Ensure the db directory exists
 fs.mkdirSync(path.dirname(DB_PATH), { recursive: true });

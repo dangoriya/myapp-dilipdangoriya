@@ -7,23 +7,21 @@ services:
         - BACKEND_API_URL=${BACKEND_API_URL:-}
     container_name: myapp
     restart: unless-stopped
-    ports:
-      - "8080:3000"
+    # No ports exposed - runs behind reverse proxy (nginx, Traefik, etc.)
     environment:
       - BACKEND_API_URL=${BACKEND_API_URL:-}
       - HOSTNAME=0.0.0.0
-      # Set environment variable SECURE_COOKIE=true in production when serving over HTTPS
-      - SECURE_COOKIE=${SECURE_COOKIE:-false}
-      # Set RESET_DB=true to run migrations on container start (resets DB schema)
+      # Production: SECURE_COOKIE=true (requires HTTPS)
+      - SECURE_COOKIE=${SECURE_COOKIE:-true}
+      # Set RESET_DB=true to run migrations on container start
       - RESET_DB=${RESET_DB:-false}
     volumes:
-      # Persist SQLite database to host directory (configured in .env DB_VOLUME_PATH)
       - ${DB_VOLUME_PATH}:/app/db
     extra_hosts:
       - "host.docker.internal:host-gateway"
     networks:
-      - dokploy-network
+      - app-network
 
 networks:
-  dokploy-network:
-    external: true
+  app-network:
+    external: false
