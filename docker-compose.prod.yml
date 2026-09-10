@@ -11,17 +11,36 @@ services:
     environment:
       - BACKEND_API_URL=${BACKEND_API_URL:-}
       - HOSTNAME=0.0.0.0
-      # Production: SECURE_COOKIE=true (requires HTTPS)
+      # Auth
+      - AUTH_FLOW=${AUTH_FLOW:-local}
+      - APPLICATION_URL=${APPLICATION_URL:-}
+      # Auth Server (OIDC)
+      - AUTH_SERVER_URL=${AUTH_SERVER_URL:-}
+      - AUTH_SERVER_INTERNAL_URL=${AUTH_SERVER_INTERNAL_URL:-}
+      - CLIENT_ID=${CLIENT_ID:-}
+      - CLIENT_SECRET=${CLIENT_SECRET:-}
+      - REDIRECT_URI=${REDIRECT_URI:-}
+      - POST_LOGOUT_REDIRECT_URI=${POST_LOGOUT_REDIRECT_URI:-}
+      - OIDC_SCOPES=${OIDC_SCOPES:-openid profile email}
+      - USE_PKCE=${USE_PKCE:-true}
+      # Session
+      - SESSION_TTL_HOURS=${SESSION_TTL_HOURS:-3}
+      - SESSION_SECRET=${SESSION_SECRET:-}
       - SECURE_COOKIE=${SECURE_COOKIE:-true}
-      # Set RESET_DB=true to run migrations on container start
+      # Role Mapping
+      - ROLE_MAPPING=${ROLE_MAPPING:-}
+      - DEFAULT_ROLE=${DEFAULT_ROLE:-normal-user}
+      # Database
+      - DB_PATH=${DB_PATH:-./db/app.db}
+      # Runtime flags
       - RESET_DB=${RESET_DB:-false}
     volumes:
       - ${DB_VOLUME_PATH}:/app/db
     extra_hosts:
       - "host.docker.internal:host-gateway"
     networks:
-      - app-network
+      - dokploy-network
 
 networks:
-  app-network:
-    external: false
+  dokploy-network:
+    external: true

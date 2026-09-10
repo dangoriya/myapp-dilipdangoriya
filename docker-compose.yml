@@ -12,9 +12,28 @@ services:
     environment:
       - BACKEND_API_URL=${BACKEND_API_URL:-}
       - HOSTNAME=0.0.0.0
-      # Set environment variable SECURE_COOKIE=true in production when serving over HTTPS
+      # Auth
+      - AUTH_FLOW=${AUTH_FLOW:-local}
+      - APPLICATION_URL=${APPLICATION_URL:-http://localhost:8080}
+      # Auth Server (OIDC)
+      - AUTH_SERVER_URL=${AUTH_SERVER_URL:-http://localhost:8005}
+      - AUTH_SERVER_INTERNAL_URL=${AUTH_SERVER_INTERNAL_URL:-}
+      - CLIENT_ID=${CLIENT_ID:-}
+      - CLIENT_SECRET=${CLIENT_SECRET:-}
+      - REDIRECT_URI=${REDIRECT_URI:-http://localhost:8080/api/auth/callback}
+      - POST_LOGOUT_REDIRECT_URI=${POST_LOGOUT_REDIRECT_URI:-http://localhost:8080}
+      - OIDC_SCOPES=${OIDC_SCOPES:-openid profile email}
+      - USE_PKCE=${USE_PKCE:-true}
+      # Session
+      - SESSION_TTL_HOURS=${SESSION_TTL_HOURS:-3}
+      - SESSION_SECRET=${SESSION_SECRET:-}
       - SECURE_COOKIE=${SECURE_COOKIE:-false}
-      # Set RESET_DB=true to run migrations on container start (resets DB schema)
+      # Role Mapping
+      - ROLE_MAPPING=${ROLE_MAPPING:-}
+      - DEFAULT_ROLE=${DEFAULT_ROLE:-normal-user}
+      # Database
+      - DB_PATH=${DB_PATH:-./db/app.db}
+      # Runtime flags
       - RESET_DB=${RESET_DB:-false}
     volumes:
       # Persist SQLite database to host directory (configured in .env DB_VOLUME_PATH)
@@ -22,8 +41,8 @@ services:
     extra_hosts:
       - "host.docker.internal:host-gateway"
     networks:
-      - dokploy-network
+      - app-network
 
 networks:
-  dokploy-network:
-    external: true
+  app-network:
+    external: false
