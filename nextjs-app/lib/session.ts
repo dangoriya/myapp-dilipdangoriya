@@ -2,7 +2,6 @@ import { getDb } from "./db";
 import crypto from "crypto";
 import { UserProfile, UserRole } from "@/types";
 
-// Default TTL: 3 hours, configurable via SESSION_TTL_HOURS environment variable
 const DEFAULT_TTL_HOURS = 3;
 
 export function getSessionTTLHours(): number {
@@ -16,7 +15,6 @@ export function getSessionTTLHours(): number {
   return DEFAULT_TTL_HOURS;
 }
 
-// Password Hashing Utility using Node built-in crypto (pbkdf2)
 export function hashPassword(password: string): string {
   const salt = crypto.randomBytes(16).toString("hex");
   const hash = crypto.pbkdf2Sync(password, salt, 1000, 64, "sha512").toString("hex");
@@ -25,7 +23,6 @@ export function hashPassword(password: string): string {
 
 export function verifyPassword(password: string, storedHash: string): boolean {
   if (!storedHash) return false;
-  // Fallback for plain-text legacy passwords in DB
   if (!storedHash.includes(":")) {
     return password === storedHash;
   }
@@ -34,12 +31,35 @@ export function verifyPassword(password: string, storedHash: string): boolean {
   return hash === originalHash;
 }
 
-export function createSession(userId: number): string {
+export interface LocalSessionData {
+  type: "local";
+  token: string;
+  userId: number;
+  expiresAt: number;
+}
+
+export interface OIDCSessionData {
+  type: "oidc";
+  idToken: string;
+  refreshToken?: string;
+  expiresAt: number;
+  user: {
+    id: string;
+    name: string;
+    email: string;
+    role: UserRole;
+    avatar?: string;
+    siteUrl?: string;
+  };
+}
+
+export type SessionData = LocalSessionData | OIDCSessionData;
+
+export function createLocalSession(userId: number): string {
   const db = getDb();
   const token = crypto.randomUUID();
   const ttlHours = getSessionTTLHours();
 
-  // Clean up any existing expired sessions
   db.prepare("DELETE FROM sessions WHERE datetime(expires_at) <= datetime('now')").run();
 
   db.prepare(`
@@ -50,11 +70,47 @@ export function createSession(userId: number): string {
   return token;
 }
 
+export function parseSessionToken(token: string): SessionData | null {
+  if (!token) return null;
+
+  try {
+    const parsed = JSON.parse(token);
+    if (parsed.type === "oidc" && parsed.idToken) {
+      if (parsed.expiresAt && parsed.expiresAt > Date.now()) {
+        return parsed as OIDCSessionData;
+      }
+      return null;
+    }
+    if (parsed.type === "local" && parsed.token) {
+      return parsed as LocalSessionData;
+    }
+  } catch {
+    return null;
+  }
+  return null;
+}
+
 export function getSession(token: string): UserProfile | null {
   if (!token) return null;
-  const db = getDb();
 
-  // Find session joined with user
+  const sessionData = parseSessionToken(token);
+  if (!sessionData) return null;
+
+  if (sessionData.type === "oidc") {
+    if (sessionData.expiresAt <= Date.now()) {
+      return null;
+    }
+    return {
+      id: sessionData.user.id,
+      name: sessionData.user.name,
+      email: sessionData.user.email,
+      role: sessionData.user.role,
+      avatar: sessionData.user.avatar || "/images/profile.png",
+      siteUrl: sessionData.user.siteUrl || "",
+    };
+  }
+
+  const db = getDb();
   const row = db.prepare(`
     SELECT 
       s.id as session_id, s.expires_at,
@@ -62,11 +118,10 @@ export function getSession(token: string): UserProfile | null {
     FROM sessions s
     JOIN users u ON s.user_id = u.id
     WHERE s.id = ? AND datetime(s.expires_at) > datetime('now') AND u.is_active = 1
-  `).get(token) as any;
+  `).get(sessionData.token) as any;
 
   if (!row) {
-    // Delete if expired session row exists
-    db.prepare("DELETE FROM sessions WHERE id = ?").run(token);
+    db.prepare("DELETE FROM sessions WHERE id = ?").run(sessionData.token);
     return null;
   }
 
@@ -76,12 +131,33 @@ export function getSession(token: string): UserProfile | null {
     email: row.email,
     role: (row.role === "admin" ? "admin-only" : row.role) as UserRole,
     avatar: row.avatar || "/images/profile.png",
-    siteUrl: row.site_url || ""
+    siteUrl: row.site_url || "",
   };
 }
 
 export function deleteSession(token: string): void {
   if (!token) return;
-  const db = getDb();
-  db.prepare("DELETE FROM sessions WHERE id = ?").run(token);
+
+  const sessionData = parseSessionToken(token);
+  if (!sessionData) return;
+
+  if (sessionData.type === "local") {
+    const db = getDb();
+    db.prepare("DELETE FROM sessions WHERE id = ?").run(sessionData.token);
+  }
+}
+
+export function createOIDCSessionCookie(
+  idToken: string,
+  refreshToken: string | undefined,
+  expiresIn: number
+): string {
+  const sessionData: OIDCSessionData = {
+    type: "oidc",
+    idToken,
+    refreshToken,
+    expiresAt: Date.now() + expiresIn * 1000,
+    user: {} as any,
+  };
+  return JSON.stringify(sessionData);
 }

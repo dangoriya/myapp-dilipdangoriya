@@ -10,7 +10,8 @@
 import Database from "better-sqlite3";
 import path from "path";
 
-const DB_PATH = path.resolve(process.cwd(), "db/app.db");
+// DB path: use DB_PATH env var, or default to ./db/app.db
+const DB_PATH = process.env.DB_PATH || path.resolve(process.cwd(), "db/app.db");
 
 // Singleton: reuse the same connection across hot-reloads in dev
 declare global {

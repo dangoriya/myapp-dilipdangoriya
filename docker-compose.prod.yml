@@ -7,27 +7,26 @@ services:
         - BACKEND_API_URL=${BACKEND_API_URL:-}
     container_name: myapp
     restart: unless-stopped
-    ports:
-      - "8080:3000"
+    # No ports exposed - runs behind reverse proxy (nginx, Traefik, etc.)
     environment:
       - BACKEND_API_URL=${BACKEND_API_URL:-}
       - HOSTNAME=0.0.0.0
       # Auth
       - AUTH_FLOW=${AUTH_FLOW:-local}
-      - APPLICATION_URL=${APPLICATION_URL:-http://localhost:8080}
+      - APPLICATION_URL=${APPLICATION_URL:-}
       # Auth Server (OIDC)
-      - AUTH_SERVER_URL=${AUTH_SERVER_URL:-http://localhost:8005}
+      - AUTH_SERVER_URL=${AUTH_SERVER_URL:-}
       - AUTH_SERVER_INTERNAL_URL=${AUTH_SERVER_INTERNAL_URL:-}
       - CLIENT_ID=${CLIENT_ID:-}
       - CLIENT_SECRET=${CLIENT_SECRET:-}
-      - REDIRECT_URI=${REDIRECT_URI:-http://localhost:8080/api/auth/callback}
-      - POST_LOGOUT_REDIRECT_URI=${POST_LOGOUT_REDIRECT_URI:-http://localhost:8080}
+      - REDIRECT_URI=${REDIRECT_URI:-}
+      - POST_LOGOUT_REDIRECT_URI=${POST_LOGOUT_REDIRECT_URI:-}
       - OIDC_SCOPES=${OIDC_SCOPES:-openid profile email}
       - USE_PKCE=${USE_PKCE:-true}
       # Session
       - SESSION_TTL_HOURS=${SESSION_TTL_HOURS:-3}
       - SESSION_SECRET=${SESSION_SECRET:-}
-      - SECURE_COOKIE=${SECURE_COOKIE:-false}
+      - SECURE_COOKIE=${SECURE_COOKIE:-true}
       # Role Mapping
       - ROLE_MAPPING=${ROLE_MAPPING:-}
       - DEFAULT_ROLE=${DEFAULT_ROLE:-normal-user}
@@ -36,13 +35,12 @@ services:
       # Runtime flags
       - RESET_DB=${RESET_DB:-false}
     volumes:
-      # Persist SQLite database to host directory (configured in .env DB_VOLUME_PATH)
       - ${DB_VOLUME_PATH}:/app/db
     extra_hosts:
       - "host.docker.internal:host-gateway"
     networks:
-      - app-network
+      - dokploy-network
 
 networks:
-  app-network:
-    external: false
+  dokploy-network:
+    external: true

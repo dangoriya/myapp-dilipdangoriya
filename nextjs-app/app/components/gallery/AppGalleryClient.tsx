@@ -9,7 +9,6 @@ import GalleryHeader from "./GalleryHeader";
 import AppCard from "./AppCard";
 import AddAppModal from "./AddAppModal";
 import EditAppModal from "./EditAppModal";
-import AuthModal from "../auth/AuthModal";
 import TopProgressBar from "../ui/TopProgressBar";
 import { SafeIcon } from "../ui/SafeIcon";
 
@@ -29,16 +28,15 @@ const DEFAULT_GUEST_USER: UserProfile = {
 interface AppGalleryClientProps {
   initialApps?: AppItem[];
   initialUser?: UserProfile;
+  authFlow?: "local" | "oidc";
+  authError?: string;
 }
 
-/**
- * Interactive Client Component Container
- * Manages responsive drawer state, role permission filtering, real-time search, and localStorage persistence.
- * Includes add, edit, delete operations for applications (admin only).
- */
 export default function AppGalleryClient({
   initialApps = [],
   initialUser = DEFAULT_GUEST_USER,
+  authFlow = "oidc",
+  authError,
 }: AppGalleryClientProps) {
   const router = useRouter();
   const [apps, setApps] = useState<AppItem[]>(initialApps);
@@ -46,15 +44,114 @@ export default function AppGalleryClient({
   const [searchQuery, setSearchQuery] = useState<string>("");
   const [isAddModalOpen, setIsAddModalOpen] = useState<boolean>(false);
   const [editApp, setEditApp] = useState<AppItem | null>(null);
-  const [isAuthModalOpen, setIsAuthModalOpen] = useState<boolean>(false);
   const [isMobileNavOpen, setIsMobileNavOpen] = useState<boolean>(false);
+  const [authErrorState, setAuthErrorState] = useState<string | undefined>(authError);
 
-  // Sync currentUser whenever initialUser (SSR session) updates
   useEffect(() => {
     setCurrentUser(initialUser);
   }, [initialUser]);
 
-  // Load from localStorage or fallback
+  useEffect(() => {
+    setAuthErrorState(authError);
+  }, [authError]);
+
+  // Real-time SSO session sync for OIDC flow
+  useEffect(() => {
+    if (authFlow !== "oidc" || currentUser.role === "guest" || currentUser.id === "guest") {
+      return;
+    }
+
+    let isChecking = false;
+    let lastCheckedTime = 0;
+    let abortController: AbortController | null = null;
+    const DEBOUNCE_MS = 1000; // 1s debounce to prevent duplicate events (focus + visibilitychange firing together)
+    const POLLING_INTERVAL_MS = 30000; // 30s background polling
+
+    const checkSSOSession = async (force: boolean = false) => {
+      const now = Date.now();
+      if (!force && now - lastCheckedTime < POLLING_INTERVAL_MS) {
+        return;
+      }
+      if (force && now - lastCheckedTime < DEBOUNCE_MS) {
+        return;
+      }
+      if (isChecking) {
+        return;
+      }
+      if (typeof navigator !== "undefined" && !navigator.onLine) {
+        return;
+      }
+      if (typeof document !== "undefined" && document.hidden && !force) {
+        return;
+      }
+
+      isChecking = true;
+      lastCheckedTime = now;
+
+      if (abortController) {
+        abortController.abort();
+      }
+      abortController = new AbortController();
+
+      try {
+        const res = await fetch("/api/auth/session-status", {
+          method: "GET",
+          cache: "no-store",
+          headers: {
+            "Cache-Control": "no-cache, no-store, must-revalidate",
+            Pragma: "no-cache",
+          },
+          signal: abortController.signal,
+        });
+
+        if (res.ok) {
+          const data = await res.json();
+          if (data && data.active === false) {
+            setCurrentUser(DEFAULT_GUEST_USER);
+            router.refresh();
+          }
+        }
+      } catch (err: any) {
+        // Ignore aborts and temporary network failures gracefully
+      } finally {
+        isChecking = false;
+      }
+    };
+
+    // Immediate check on tab switch / window focus
+    const handleFocus = () => {
+      checkSSOSession(true);
+    };
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "visible") {
+        checkSSOSession(true);
+      }
+    };
+
+    const handleOnline = () => {
+      checkSSOSession(true);
+    };
+
+    const intervalId = setInterval(() => {
+      checkSSOSession(false);
+    }, POLLING_INTERVAL_MS);
+
+    window.addEventListener("focus", handleFocus);
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    window.addEventListener("online", handleOnline);
+
+    return () => {
+      clearInterval(intervalId);
+      window.removeEventListener("focus", handleFocus);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+      window.removeEventListener("online", handleOnline);
+      if (abortController) {
+        abortController.abort();
+      }
+    };
+  }, [authFlow, currentUser.id, currentUser.role, router]);
+
   useEffect(() => {
     const saved = localStorage.getItem("devhub_apps");
     if (saved) {
@@ -68,7 +165,6 @@ export default function AppGalleryClient({
     }
   }, [initialApps]);
 
-  // Persist changes
   const persist = (newApps: AppItem[]) => {
     setApps(newApps);
     localStorage.setItem("devhub_apps", JSON.stringify(newApps));
@@ -90,9 +186,7 @@ export default function AppGalleryClient({
     persist(updated);
   };
 
-  // Filter apps based on role and search
   const filteredApps = apps.filter((app) => {
-    // Role permission
     let hasAccess = false;
     if (currentUser.role === "admin-only") {
       hasAccess = true;
@@ -102,7 +196,6 @@ export default function AppGalleryClient({
       hasAccess = app.access === "all";
     }
     if (!hasAccess) return false;
-    // Search
     if (!searchQuery.trim()) return true;
     const q = searchQuery.toLowerCase();
     return (
@@ -110,19 +203,8 @@ export default function AppGalleryClient({
     );
   });
 
-  const handleLogout = async () => {
-    try {
-      await fetch("/api/auth/logout", { method: "POST" });
-    } catch (err) {
-      console.error("Logout error:", err);
-    }
-    setCurrentUser(DEFAULT_GUEST_USER);
-    router.refresh();
-  };
-
-  const handleSelectUser = (user: UserProfile) => {
-    setCurrentUser(user);
-    router.refresh();
+  const handleLogout = () => {
+    window.location.href = "/api/auth/logout";
   };
 
   const handleUpdatePortfolio = (newUrl: string) => {
@@ -134,14 +216,38 @@ export default function AppGalleryClient({
   return (
     <div className="flex min-h-screen bg-[#0d1017] relative overflow-hidden">
       <TopProgressBar />
+      {authErrorState && (
+        <div className="fixed top-4 left-1/2 -translate-x-1/2 z-50 max-w-md w-full mx-4">
+          <div className="bg-rose-500/15 border border-rose-500/30 text-rose-200 rounded-xl p-4 flex items-start gap-3 shadow-lg">
+            <SafeIcon name="AlertCircle" size={18} style={{ color: "#f87171" }} />
+            <div className="flex-1">
+              <div className="font-semibold text-sm mb-1">Login failed</div>
+              <div className="text-xs text-rose-300 break-words">{authErrorState}</div>
+            </div>
+            <button
+              onClick={() => setAuthErrorState(undefined)}
+              className="text-rose-400 hover:text-rose-200 ml-2"
+            >
+              <SafeIcon name="X" size={14} />
+            </button>
+          </div>
+        </div>
+      )}
       {/* Sidebar */}
       <Sidebar
         currentUser={currentUser}
-        onOpenAuthModal={() => setIsAuthModalOpen(true)}
+        onOpenAuthModal={() => { 
+          if (authFlow === "local") {
+            window.location.href = "/auth/local-login";
+          } else {
+            window.location.href = "/api/auth/login";
+          }
+        }}
         onLogout={handleLogout}
         onUpdatePortfolio={handleUpdatePortfolio}
         isMobileOpen={isMobileNavOpen}
         onCloseMobile={() => setIsMobileNavOpen(false)}
+        authFlow={authFlow}
       />
 
       {/* Main Content Workspace with Animated Gradient Waves Background */}
@@ -212,12 +318,6 @@ export default function AppGalleryClient({
           onSave={handleEditApp}
         />
       )}
-      <AuthModal
-        isOpen={isAuthModalOpen}
-        onClose={() => setIsAuthModalOpen(false)}
-        currentRole={currentUser.role}
-        onSelectUser={handleSelectUser}
-      />
     </div>
   );
 }

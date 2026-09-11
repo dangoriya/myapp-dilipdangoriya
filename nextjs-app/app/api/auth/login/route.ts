@@ -1,60 +1,48 @@
 import { NextResponse } from "next/server";
-import { getDb } from "@/lib/db";
-import { createSession, verifyPassword, getSessionTTLHours } from "@/lib/session";
-import { UserProfile, UserRole } from "@/types";
+import { getAuthFlow } from "@/lib/auth-config";
 
-export async function POST(req: Request) {
+export async function GET() {
+  const authFlow = getAuthFlow();
+
+  if (authFlow === "local") {
+    return NextResponse.redirect(new URL("/auth/local-login", process.env.PUBLIC_BASE_URL || "http://localhost:3000"));
+  }
+
+  // OIDC flow
+  const { buildAuthUrl, generateState, generateCodeVerifier, generateCodeChallenge } = await import("@/lib/oidc");
+
   try {
-    const { email, password } = await req.json();
+    const state = generateState();
+    const codeVerifier = generateCodeVerifier();
+    const codeChallenge = generateCodeChallenge(codeVerifier);
 
-    if (!email || !password) {
-      return NextResponse.json({ error: "Email and password are required" }, { status: 400 });
-    }
+    const authUrl = buildAuthUrl({
+      state,
+      codeChallenge,
+      codeChallengeMethod: "S256",
+    });
 
-    const cleanEmail = email.trim().toLowerCase();
-    const cleanPassword = password.trim();
+    const response = NextResponse.redirect(authUrl);
 
-    const db = getDb();
-    const userRow = db.prepare("SELECT * FROM users WHERE LOWER(email) = ? AND is_active = 1").get(cleanEmail) as any;
-
-    if (!userRow) {
-      return NextResponse.json({ error: "Invalid email or password" }, { status: 401 });
-    }
-
-    const isValid = verifyPassword(cleanPassword, userRow.password);
-    if (!isValid) {
-      return NextResponse.json({ error: "Invalid email or password" }, { status: 401 });
-    }
-
-    // Create session in SQLite
-    const token = createSession(userRow.id);
-    const ttlHours = getSessionTTLHours();
-    const maxAgeSeconds = ttlHours * 60 * 60;
-
-    const user: UserProfile = {
-      id: `user-${userRow.id}`,
-      name: userRow.name,
-      email: userRow.email,
-      role: (userRow.role === "admin" ? "admin-only" : userRow.role) as UserRole,
-      avatar: userRow.avatar || "/images/profile.png",
-      siteUrl: userRow.site_url || ""
-    };
-
-    const response = NextResponse.json({ user, message: "Logged in successfully" });
-
-    // Set HttpOnly session cookie
-    // Set SECURE_COOKIE=true in production only if serving over HTTPS
-    response.cookies.set("session", token, {
+    response.cookies.set("oidc_state", state, {
       httpOnly: true,
       secure: process.env.SECURE_COOKIE === "true",
       sameSite: "lax",
       path: "/",
-      maxAge: maxAgeSeconds,
+      maxAge: 600,
+    });
+
+    response.cookies.set("oidc_code_verifier", codeVerifier, {
+      httpOnly: true,
+      secure: process.env.SECURE_COOKIE === "true",
+      sameSite: "lax",
+      path: "/",
+      maxAge: 600,
     });
 
     return response;
   } catch (err: any) {
-    console.error("Login error:", err);
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+    console.error("Login redirect error:", err);
+    return NextResponse.json({ error: "Failed to initiate login" }, { status: 500 });
   }
 }
