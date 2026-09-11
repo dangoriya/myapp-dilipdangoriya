@@ -55,6 +55,103 @@ export default function AppGalleryClient({
     setAuthErrorState(authError);
   }, [authError]);
 
+  // Real-time SSO session sync for OIDC flow
+  useEffect(() => {
+    if (authFlow !== "oidc" || currentUser.role === "guest" || currentUser.id === "guest") {
+      return;
+    }
+
+    let isChecking = false;
+    let lastCheckedTime = 0;
+    let abortController: AbortController | null = null;
+    const DEBOUNCE_MS = 1000; // 1s debounce to prevent duplicate events (focus + visibilitychange firing together)
+    const POLLING_INTERVAL_MS = 30000; // 30s background polling
+
+    const checkSSOSession = async (force: boolean = false) => {
+      const now = Date.now();
+      if (!force && now - lastCheckedTime < POLLING_INTERVAL_MS) {
+        return;
+      }
+      if (force && now - lastCheckedTime < DEBOUNCE_MS) {
+        return;
+      }
+      if (isChecking) {
+        return;
+      }
+      if (typeof navigator !== "undefined" && !navigator.onLine) {
+        return;
+      }
+      if (typeof document !== "undefined" && document.hidden && !force) {
+        return;
+      }
+
+      isChecking = true;
+      lastCheckedTime = now;
+
+      if (abortController) {
+        abortController.abort();
+      }
+      abortController = new AbortController();
+
+      try {
+        const res = await fetch("/api/auth/session-status", {
+          method: "GET",
+          cache: "no-store",
+          headers: {
+            "Cache-Control": "no-cache, no-store, must-revalidate",
+            Pragma: "no-cache",
+          },
+          signal: abortController.signal,
+        });
+
+        if (res.ok) {
+          const data = await res.json();
+          if (data && data.active === false) {
+            setCurrentUser(DEFAULT_GUEST_USER);
+            router.refresh();
+          }
+        }
+      } catch (err: any) {
+        // Ignore aborts and temporary network failures gracefully
+      } finally {
+        isChecking = false;
+      }
+    };
+
+    // Immediate check on tab switch / window focus
+    const handleFocus = () => {
+      checkSSOSession(true);
+    };
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "visible") {
+        checkSSOSession(true);
+      }
+    };
+
+    const handleOnline = () => {
+      checkSSOSession(true);
+    };
+
+    const intervalId = setInterval(() => {
+      checkSSOSession(false);
+    }, POLLING_INTERVAL_MS);
+
+    window.addEventListener("focus", handleFocus);
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    window.addEventListener("online", handleOnline);
+
+    return () => {
+      clearInterval(intervalId);
+      window.removeEventListener("focus", handleFocus);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+      window.removeEventListener("online", handleOnline);
+      if (abortController) {
+        abortController.abort();
+      }
+    };
+  }, [authFlow, currentUser.id, currentUser.role, router]);
+
   useEffect(() => {
     const saved = localStorage.getItem("devhub_apps");
     if (saved) {

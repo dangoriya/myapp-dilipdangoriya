@@ -262,6 +262,33 @@ export async function fetchUserInfo(accessToken: string): Promise<{
   }>;
 }
 
+export async function checkSessionActive(idToken: string): Promise<{ active: boolean; status: number }> {
+  const config = getOIDCConfig();
+  try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 4000);
+
+    const response = await fetch(`${config.authServerInternalUrl}/oauth/session/active`, {
+      method: "GET",
+      headers: {
+        Authorization: `Bearer ${idToken}`,
+      },
+      signal: controller.signal,
+    });
+    clearTimeout(timeoutId);
+
+    if (response.status === 200) {
+      return { active: true, status: 200 };
+    } else if (response.status === 401 || response.status === 403) {
+      return { active: false, status: response.status };
+    }
+    return { active: true, status: response.status };
+  } catch {
+    // Network error or timeout: fail open temporarily for slow connections
+    return { active: true, status: 0 };
+  }
+}
+
 export function buildLogoutFormData(idTokenHint?: string): {
   url: string;
   fields: Record<string, string>;
