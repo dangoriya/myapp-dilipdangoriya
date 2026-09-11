@@ -262,6 +262,29 @@ export async function fetchUserInfo(accessToken: string): Promise<{
   }>;
 }
 
+export function buildLogoutFormData(idTokenHint?: string): {
+  url: string;
+  fields: Record<string, string>;
+} {
+  const config = getOIDCConfig();
+  const fields: Record<string, string> = {
+    post_logout_redirect_uri: config.postLogoutRedirectUri,
+  };
+  
+  if (idTokenHint) {
+    fields.id_token_hint = idTokenHint;
+  }
+  
+  if (config.clientId) {
+    fields.client_id = config.clientId;
+  }
+  
+  return {
+    url: `${config.authServerUrl}/logout`,
+    fields,
+  };
+}
+
 export function buildLogoutUrl(idTokenHint?: string): string {
   const config = getOIDCConfig();
   const url = new URL(`${config.authServerUrl}/logout`);
